@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# Código feito por latived, versão noob. Talvez tenha pouca performance.
+# Importante: objetivo desse código é aprendizado.
+
 import math
 import functools
 from PIL import Image
@@ -8,12 +11,17 @@ import numpy # importar tudo msm é feio
 print("Iniciando extração de atributos: GLCM")
 
 # A idéia do código é:
-# 1. receber uma imagem de videocolonoscopia
-# 2. converter para escala de cinza
-# 3. particionar em patches de (atualmente) 50x50
-# 4. calcular a matriz de co-ocorrência para cada patch
-# 5. extrair os atributos
-# 6. salvar os atributos desejados em um arquivo .csv [falta]
+# 1. receber uma imagem de videocolonoscopia            [feito]
+# 2. converter para escala de cinza                     [feito, mas dúvidas]
+# 3. particionar em patches de (atualmente) 50x50       [feito]
+# 4. calcular matriz de co-ocorrência por patch         [1 de 4 direções][falta]
+# 5. extrair os atributos                               [compreender melhor]
+# 6. salvar os atributos desejados em um arquivo .csv   [falta]
+
+# Item 2: resultado ok, mas dúvida se é o melhor modo
+# Item 4: no artigo é obtida 1 matriz para cada distância (displacement)
+# Item 5: detalhes no local do código
+# Item 6: bom, não fiz.
 
 ### Etapa 1: contém a imagem original 
 # Talvez modifique para recebê-la como entrada
