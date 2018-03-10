@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 
-# para que isso acima mesmo?
-
-# Qual a importância de criar uma matriz simétrica? no que isso ajuda? é melhor?
-## : os níveis m e n ocorrem juntos, é isso que importa apenas.
-
 import math
 import functools
 from PIL import Image
@@ -18,73 +13,56 @@ img = Image.open("/home/lativ/Documents/UFAL/GioconDa/Dados/"
 print("Caminho: {0}".format(img.filename))
 print("Dimensões: {0}".format(img.size))
 
-# requantizar (nome correto?) 24 -> 8 bits 
-# (acho que é basicamente cor -> cinza)
-imgc = img.convert(mode="L") # pronto. imgc é 7.tiff em b&p
-# eu deveria usar o .quantize ou .convert msm?
+imgc = img.convert(mode="L") # RGB -> Cinza.
+# eu deveria usar o .quantize em vez do convert?
 
-# PATCH_SIZE = 50
-# no nosso caso temos sempre: (574, 500) 
-# e pelo que vi, dá pra supor que as primeiras e últimas linhas são todas de valor 0
-# PRA VERIFICAR: posso remover 12 linhas em cima e 12 linhas embaixo?
-# supondo que sim...
-# então uma partição de 50x50 nos dá: 11 x 10 patches = 110 patches
-# como temos 300 imagens, isso totaliza 33000 patches
-# um dos problemas em ter muitos patches assim é que poucos são realmente de casos anormais (com pólipos)
+PATCH_SIZE      = 50        # é o tamanho do patch 
+GRAY_LEVELS     = 256       # imagem tem 24 níveis; requantizei para 8.
+# TO DO: usar outros valores para displacement, como no artigo [1 GLCM pra cada]
+# 0º  : [0, 1]
+# 45º : [-1,1]
+# 90º : [1, 0]
+# 135º: [-1,-1]
+displacement    = [1,1]     # padrão usado: significa um pixel para direita, um pixel para baixo (-45º)
 
-# como guardar os patches? uma lista 11x10 é a solução mais óbvia
-# box=(left=0,upper=12,right=50,lower=62) <- primeiro patch (superior esq)
-# (450,512,500,562) <- último patch (inferior dir)
-# tenho a imagem no objeto Image 'imgc', usarei .crop
-patches = [[None for _ in range(10)] for _ in range(11)] # 10 col, 11 linha ; deveria inicializar melhor?
+# box=(left=0,  upper=12,   right=50,   lower=62) <- primeiro patch (superior esq)
+# box=(left=450,upper=512,  right=500,  lower=562) <- último patch (inferior dir)
+
+# TO DO: definir dimensões de patches de acordo com PATCH_SIZE
+patches = [[None for _ in range(10)] for _ in range(11)]
 for i in range(11):     # controla linhas
     for j in range(10): # controla colunas
             patches[i][j] = imgc.crop(
                     box=(
-                        (j * 50),       # left
-                        (12 + i * 50),  # upper
-                        (50 + j * 50),  # right (left + 50)
-                        (62 + i * 50)   # lower (upper + 50)
+                        (j * PATCH_SIZE),                       # left
+                        (12 + i * PATCH_SIZE ),                 # upper
+                        (PATCH_SIZE + j * PATCH_SIZE),          # right (left + 50)
+                        ((12 + PATCH_SIZE) + i * PATCH_SIZE)    # lower (upper + 50)
                     )
             )
 
-# agora já tenhos os 110 patches
-# alguns são pretos, então preciso descartar. 
-# como? mais 50% dos pixels serem pretos?
-# ou elimino a primeira e última linhas e colunas? 
-# melhor verificar por valor = 0; há imagens que contém muitas colunas pretas
-# há também imagens com valores baixos mas não pretos
-# serão afetadas?
-# decisão: não eliminar patches agora.
-
-# requantizei la no começo
-
-# IMAGE_SIZE      = 8         # tamanho da matriz, mas acho que usarei valor diferente
-# GRAY_LEVELS     = 6         # número níveis de cinza da imagem, geralmente 256 para uma de 8 bits
-IMAGE_SIZE      = 50        # é o tamanho do patch msm
-GRAY_LEVELS     = 256       # imagem tem 24 níveis; requantizei para 8 bits
-# talvez eu faça mais... depois...
-displacement    = [1,1]     # padrão usado: significa um pixel para direita, um pixel para baixo (-45º)
+# Agora já tenhos os 110 patches, mas alguns são pretos.
+# Preciso descartar. Mas não eliminar-os-ei, por agora.
 
 # ROWMAX e COLMAX são as bordas utilizadas para o cálculo da matriz GLCM
-# tá padrão do Avi; precisarei entender melhor (não é difícil) para quando for
-# usar outras distâncias
-rowmax  =   IMAGE_SIZE - displacement[0] if displacement[0] else IMAGE_SIZE - 1
-colmax  =   IMAGE_SIZE - displacement[1] if displacement[1] else IMAGE_SIZE - 1
+# Tá padrão do Avinash.
+# Precisarei entender melhor (não é difícil) para quando for
+# usar outras distâncias.
+rowmax  =   PATCH_SIZE - displacement[0] if displacement[0] else PATCH_SIZE - 1
+colmax  =   PATCH_SIZE - displacement[1] if displacement[1] else PATCH_SIZE - 1
 
-# matriz 11x10 com cade célula sendo uma glcm
-patches_glcm = [[None for _ in range(10)] for _ in range(11)] # 10 col, 11 linha ; deveria inicializar melhor?
-# depois eu melhoro essa parte (deixar mais clara e mais eficiente)
-# len(patches) dps coloco aqui no lugar de 10 e 11
+# Matriz 11x10, onde cada célula é uma GLCM
+patches_glcm = [[None for _ in range(10)] for _ in range(11)] 
+
+# patch_i e patch_j localizam o patch que desejo na matriz acima.
 for patch_i in range(11):       # patch posição i
     for patch_j in range(10):   # patch posição j
         # inicializa matriz GLCM
         glcm = [[0 for _ in range(GRAY_LEVELS)]
                 for _ in range(GRAY_LEVELS)]
-        # converter de Image para um numpy.array
+        # Image --> numpy.array
         image = numpy.asarray(patches[patch_i][patch_j])
-        # pronto: image é um dos 110 patches
-        # quanto tempo leva as instruções abaixo? O(n^2), né. n = 256 (tam. glcm)
+        # Calculando GLCM para patches_glcm[patch_i][patch_j]
         for i in range(rowmax):
             for j in range(colmax):
                 # pega valores (m,n) no padrão setado e incrementa glcm[m][n] e glcm[n][m]
@@ -92,40 +70,49 @@ for patch_i in range(11):       # patch posição i
                 # simétrica
                 glcm[m][n] += 1
                 glcm[n][m] += 1
-        # terminei uma glcm, então a salvo
-        patches_glcm[patch_i][patch_j] = glcm       # depois refatoro o código 
+        # Uma glcm pronta, logo salvo
+        patches_glcm[patch_i][patch_j] = glcm
 
 
-# para teste vou apenas selecionar uma glcm qualquer aqui
-idx, jdx = 7, 5
-glcm = patches_glcm[idx][jdx]
-le = jdx * 50
-up = 12 + idx * 50
-ri = 50 + jdx * 50
-lo = 62 + idx * 50
+# Para teste vou apenas selecionar uma glcm qualquer aqui
+idx, jdx = 5, 4                 # indices do patch: linha, coluna
+glcm = patches_glcm[idx][jdx]   # seleciono a glcm
+
+# Formo o retângulo com (le,up) e (ri,lo)
+le = jdx * 50       # left
+up = 12 + idx * 50  # upper
+ri = 50 + jdx * 50  # right
+lo = 62 + idx * 50  # lower
+
 print("Localização do patch:"
-        " (left: {le}, upper: {up}, right: {ri}, lower: {lo})".format(le=le,up=up,ri=ri,lo=lo))
+        " (left: {le}, upper: {up}, right: {ri}, lower: {lo})".format(
+            le = le, up = up, ri = ri, lo = lo
+            )
+        )
 
-# calcular atributos
+
+# TO DO: salvar atributos em .csv? Vou usá-los com SVM, então...
+
+# Calcular atributos
 #   entropia, energia, constraste e homogeneidade
 
-entropy = energy = contrast = homogeneity= None     # por que não 0 em vez de None?
-# reduce(fun, seq[, initial]) -> value
-# parece que reduz linhas e colunas a um numero só (soma tudo)
-normalizer = functools.reduce(lambda x, y: x + sum(y), glcm, 0) # vai ser usado pra normalizar os valores em (0,1)
-for m in range(len(glcm[0])):
-    for n in range(len(glcm[0])):
-        prob = (1.0 * glcm[m][n]) / normalizer      # não entendi o 1.0 ali... 
+entropy = energy = contrast = homogeneity = None     # por que não 0 em vez de None?
+# reduce(fun, seq[, initial]) -> value (isto é, reduz a matriz para a um valor)
+normalizer = functools.reduce(lambda x, y: x + sum(y), glcm, 0) # GLCM: [0,1]
+for m in range(GRAY_LEVELS):
+    for n in range(GRAY_LEVELS):
+        # Valores da GLCM como probabilidades
+        prob = (1.0 * glcm[m][n]) / normalizer
         if (prob >= 0.0001) and (prob <= 0.999):
-            log_prob = math.log(prob,2)             # qual seria o sentido de log_prob? tipo, que representa pra imagem?
+            log_prob = math.log(prob,2)  
         if prob < 0.0001:
             log_prob = 0
         if prob > 0.999:
             log_prob = 0
-        # por que a partir daqui os atributos são calculados apenas uma vez, no começo?
-        # entropy is None, então calcula, aí passa pro próximo laço
-        # o mesmo acontece para os outros
-        # assim os 4 primeiros ciclos cada um serve pra inicializar um atributo
+        # Por que a partir daqui os atributos são calculados apenas uma vez, no começo?
+        # entropy is None, então calcula.
+        # Aí passa pro próximo laço.
+        # O mesmo acontece para os outros.
         if entropy is None:
             entropy = -1.0 * prob * log_prob
             continue   
