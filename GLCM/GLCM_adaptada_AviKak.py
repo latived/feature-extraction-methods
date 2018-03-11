@@ -1,162 +1,166 @@
 #!/usr/bin/env python
 
-# Código feito por latived, versão noob. Talvez tenha pouca performance.
+# Código feito por latived, versão noob++. Talvez tenha pouca performance.
 # Importante: objetivo desse código é aprendizado.
 
 import math
 import functools
-import numpy 
+import numpy as np
 import csv 
 
 from PIL import Image
 
-#####
-
-# A idéia do código é:
-# 1. receber uma imagem de videocolonoscopia            [feito]
-# 2. converter para escala de cinza                     [feito, mas dúvidas]
-# 3. particionar em patches de (atualmente) 50x50       [feito]
-# 4. calcular matriz de co-ocorrência por patch         [1 de 4 direções][falta]
-#        extrair os atributos                           [done]
-#        e salvar os atributos desejados 
-#           em um arquivo .csv                          [done]
-
-# Item 2: resultado ok, mas dúvida se é o melhor modo
-# Item 4: no artigo é obtida 1 matriz para cada distância (displacement)
-
-####### Etapa 1: contém a imagem original 
-
-# Talvez modifique para recebê-la como entrada
-img = Image.open("/home/lativ/Documents/"
-        "UFAL/GioconDa/Dados/"
-        "ImagesDataset/ColonDB/"
-        "CVC-ColonDB/CVC-ColonDB/7.tiff"
-        )
-
-# TO DO: carregar uma lista de imagens: 1-300.tiff
-# TO DO: pela linha de comando, tipo:
-#   ./code.py img1.tiff [ou até várias de uma vez]
-
-###### Etapa 2: conversão para escala de cinza
-
-imgc = img.convert(mode="L") # RGB -> Cinza.
-# eu deveria usar o .quantize em vez do convert?
-
-###### Etapa 3: particionando imagem original em patches
-
-# TO DO: fazer função que
 #   recebe imagem e patch_size
 #   retorna lista de patches
+def particionar(img = None, ps=50):
+    PATCH_SIZE  = ps    # é o tamanho do patch 
 
-PATCH_SIZE      = 50        # é o tamanho do patch 
-GRAY_LEVELS     = 256       # imagem tem 24 níveis; requantizei para 8.
+    # eu deveria usar o .quantize em vez do convert?
+    imgc = img.convert(mode="L") # RGB -> Cinza.
 
-# box=(left=0,  upper=12,   right=50,   lower=62) <- primeiro patch (superior esq)
-# box=(left=450,upper=512,  right=500,  lower=562) <- último patch (inferior dir)
+    # box=(left=0,  upper=12,   right=50,   lower=62) <- primeiro patch (superior esq)
+    # box=(left=450,upper=512,  right=500,  lower=562) <- último patch (inferior dir)
 
-# TO DO: definir dimensões de patches de acordo com PATCH_SIZE
-patches = [[None for _ in range(10)] for _ in range(11)]
-for i in range(11):     # controla linhas
-    for j in range(10): # controla colunas
-            patches[i][j] = imgc.crop(
-                    box=(
-                        (j * PATCH_SIZE),                       # left
-                        (12 + i * PATCH_SIZE ),                 # upper
-                        (PATCH_SIZE + j * PATCH_SIZE),          # right (left + 50)
-                        ((12 + PATCH_SIZE) + i * PATCH_SIZE)    # lower (upper + 50)
-                    )
-            )
-            
-# Agora já tenhos os 110 patches, mas alguns são pretos.
-# Preciso descartar. Mas não eliminar-os-ei, por agora.
+    # TO DO: definir dimensões de patches de acordo com PATCH_SIZE
+    patches = [[None for _ in range(10)] for _ in range(11)]
+    for i in range(11):     # controla linhas
+        for j in range(10): # controla colunas
+                patches[i][j] = imgc.crop(
+                        box=(
+                            (j * PATCH_SIZE),                       # left
+                            (12 + i * PATCH_SIZE ),                 # upper
+                            (PATCH_SIZE + j * PATCH_SIZE),          # right (left + 50)
+                            ((12 + PATCH_SIZE) + i * PATCH_SIZE)    # lower (upper + 50)
+                        )   
+                )   
+    
+    return patches
+    # 110 patches se ps=50, mas alguns são pretos.
 
-# TO DO: função que
-#       recebe patche
+#       recebe patch
 #       retorna glcm
+def calc_glcm(patch=None, disp=[0,1]):
 
-# TO DO: usar outros valores para displacement, como no artigo [1 GLCM pra cada]
-# 0º  : [0, 1]
-# 45º : [-1,1]
-# 90º : [1, 0]
-# 135º: [-1,-1]
-displacement = [1,1]     # padrão usado: significa um pixel para direita, um pixel para baixo (-45º)
+    displacement = disp # padrão usado
+    
+    # Image --> numpy.array
+    image = np.asarray(patch)
+    
+    PATCH_SIZE = len(image)
 
-# TO DO: função que
+    # ROWMAX e COLMAX são as bordas utilizadas para o cálculo da matriz GLCM
+    rowmax  =   PATCH_SIZE - displacement[0] if displacement[0] else PATCH_SIZE - 1
+    colmax  =   PATCH_SIZE - displacement[1] if displacement[1] else PATCH_SIZE - 1
+
+    GRAY_LEVELS = 256 # total de níveis vai ser tam da GLCM
+
+    # inicializa matriz GLCM
+    shape = (GRAY_LEVELS, GRAY_LEVELS)
+    glcm = np.zeros(shape=shape, dtype=np.int8)
+
+    # Calculando GLCM para patch
+    for i in range(rowmax):
+        for j in range(colmax):
+            # pega valores (m,n) no padrão setado e incrementa glcm[m][n] e glcm[n][m]
+            m, n = image[i][j], image[i + displacement[0]][j + displacement[1]]
+            # simétrica
+            glcm[m][n] += 1
+            glcm[n][m] += 1
+    
+    return glcm
+
 #       recebe glcm
 #       retorna lista de atributos
+def extrair_attrs(glcm = None):
+    GRAY_LEVELS = len(glcm)
 
-# ROWMAX e COLMAX são as bordas utilizadas para o cálculo da matriz GLCM
-# Tá padrão do Avinash.
-# Precisarei entender melhor (não é difícil) para quando for
-# usar outras distâncias.
-rowmax  =   PATCH_SIZE - displacement[0] if displacement[0] else PATCH_SIZE - 1
-colmax  =   PATCH_SIZE - displacement[1] if displacement[1] else PATCH_SIZE - 1
+    entropy = energy = contrast = homogeneity = 0
+    normalizer = functools.reduce(lambda x, y: x + sum(y), glcm, 0)
+    for m in range(GRAY_LEVELS):
+        for n in range(GRAY_LEVELS):
+            prob = (1.0 * glcm[m][n]) / normalizer
+            if (prob >= 0.0001) and (prob <= 0.999):
+                log_prob = math.log(prob, 2)
+            if prob < 0.0001:
+                log_prob = 0
+            if prob > 0.999:
+                log_prob = 0
+            entropy += -1.0 * prob * log_prob
+            energy += prob ** 2
+            contrast += ((m - n) ** 2) * prob
+            homogeneity += prob / ((1 + abs(m - n)) * 1.0)
+    if abs(entropy) < 0.0000001:
+        entropy = 0.0
+    
+    attrs = [entropy, energy, contrast, homogeneity]
 
-# Matriz 11x10, onde cada célula é uma GLCM
-patches_glcm = [[None for _ in range(10)] for _ in range(11)] 
+    return attrs
 
-###### Etapa 4: calcular matriz de co-ocorrência, extrair atributos e salvá-los
-fname = 'attrs.csv'
-with open(fname, 'w', newline='') as attrs:
-    header = ['patch',
-            'entropia',
-            'energia',
-            'contraste',
-            'homogeneidade']
-    writer = csv.DictWriter(attrs, fieldnames=header)
-    writer.writeheader()
+if __name__ == "__main__":
 
-    # patch_i e patch_j localizam o patch que desejo na matriz acima.
-    for patch_i in range(11):       # patch posição i
-        for patch_j in range(10):   # patch posição j
-            # inicializa matriz GLCM
-            glcm = [[0 for _ in range(GRAY_LEVELS)]
-                    for _ in range(GRAY_LEVELS)]
-            # Image --> numpy.array
-            image = numpy.asarray(patches[patch_i][patch_j])
-            # Calculando GLCM para patches_glcm[patch_i][patch_j]
-            for i in range(rowmax):
-                for j in range(colmax):
-                    # pega valores (m,n) no padrão setado e incrementa glcm[m][n] e glcm[n][m]
-                    m, n = image[i][j], image[i + displacement[0]][j + displacement[1]]
-                    # simétrica
-                    glcm[m][n] += 1
-                    glcm[n][m] += 1
-            # Uma glcm pronta, logo salvo
-            patches_glcm[patch_i][patch_j] = glcm
-            # já posso calcular os atributos aqui?
-            # mudando de None para 0
-            # não consigo ver algum problema por isso
+    # Talvez modifique para recebê-la como entrada
+    img_path = ("/home/lativ/Documents/UFAL/GioconDa/Dados/ImagesDataset/"
+            "ColonDB/CVC-ColonDB/CVC-ColonDB/")
+   
+    # Atributos obtidos para cada patch de uma imagem
+    list_attrs = [None for _ in range(110)]     # 110 porque já sei o total
+    # Guardar um 'list_attrs' para cada imagem, para no fim escrever no arquivo
+    list_attrs_imgs = [list_attrs for _ in range(300)]
 
-            
-            entropy = energy = contrast = homogeneity = 0
-            normalizer = functools.reduce(lambda x, y: x + sum(y), glcm, 0)
-            for m in range(GRAY_LEVELS):
-                for n in range(GRAY_LEVELS):
-                    prob = (1.0 * glcm[m][n]) / normalizer
-                    if (prob >= 0.0001) and (prob <= 0.999):
-                        log_prob = math.log(prob, 2)
-                    if prob < 0.0001:
-                        log_prob = 0
-                    if prob > 0.999:
-                        log_prob = 0
-                    entropy += -1.0 * prob * log_prob
-                    energy += prob ** 2
-                    contrast += ((m - n) ** 2) * prob
-                    homogeneity += prob / ((1 + abs(m - n)) * 1.0)
-            if abs(entropy) < 0.0000001:
-                entropy = 0.0
-            # salvar os atributos em um arquivo
-            writer.writerow({'patch': 10 * (patch_i) + patch_j + 1,
-                'entropia': entropy,
-                'energia': energy,
-                'contraste': contrast,
-                'homogeneidade': homogeneity
-                })
+    # paralelizar aqui, será que vai?
+    # cada imagem toma ~1min, logo tudo dá ~5h
+    for i in range(300):
+        print("Tratando imagem {}...".format(i+1))
 
+        # pega 1 imagem e salva em img
+        img = Image.open(img_path + str(i+1) + ".tiff")
+                
+        ### CHAMADA DAS FUNÇÕES AQUI
 
-print("Imagem carregada, convertida para cinza e particionada em patches de"
-        " tamanho {0}x{1}.".format(PATCH_SIZE, PATCH_SIZE))
-print("GLCMs construídas, atributos extraídos e salvos com sucesso.")
+        # patches é uma lista com listas de partições da img original
+        patches = particionar(img) # matriz de patches 11x10
+        line_num = 0
+        for line in patches:
+            patch_num = 0
+            for patch in line:
+                # Calculando GLCM de um patch 
+                glcm = calc_glcm(patch) # lembre que displacement = [0,1] apenas
+                # Extração dos 4 atributos
+                # imgs_list_attrs[i] index os attrs da img i
+                # e imgs...[line_num * 10 + patch_num] salva os attrs do patch
+                list_attrs_imgs[i][line_num * 10 + patch_num] = extrair_attrs(glcm)
+                patch_num += 1
+            line_num += 1
+    
+    # nome do arquivo csv
+    fname = 'attrs.csv'
+    with open(fname, 'a', newline='') as fattrs:
+        header = ['img',
+                'patch',
+                'entropia',
+                'energia',
+                'contraste',
+                'homogeneidade']
 
-# TO DO: criar main para chamar as funções necessárias, e ao fim salvar no .csv
+        writer = csv.DictWriter(fattrs, fieldnames=header)
+        writer.writeheader() # e se o arquivo já existir?
+
+        img_num = 0
+        print("Salvando atributos da imagem {}".format(img_num+1))
+        # lattrs: 110 lists do tipo [at1,at2,at3,at4]
+        for lattrs in list_attrs_imgs:  
+            img_num += 1
+            patch_num = 0
+            for attrs in lattrs: # attr é [at1,at2,at3,at4]
+                patch_num += 1
+                # Escreve num arquivo csv
+                writer.writerow({
+                    'img': img_num,
+                    'patch': patch_num,
+                    'entropia': attrs[0],
+                    'energia': attrs[1],
+                    'contraste': attrs[2],
+                    'homogeneidade': attrs[3]
+                    })
+
+    print("Done!")
