@@ -5,11 +5,12 @@
 
 import math
 import functools
-from PIL import Image
 import numpy 
 import csv 
 
-print("Iniciando extração de atributos: GLCM")
+from PIL import Image
+
+#####
 
 # A idéia do código é:
 # 1. receber uma imagem de videocolonoscopia            [feito]
@@ -23,7 +24,8 @@ print("Iniciando extração de atributos: GLCM")
 # Item 2: resultado ok, mas dúvida se é o melhor modo
 # Item 4: no artigo é obtida 1 matriz para cada distância (displacement)
 
-### Etapa 1: contém a imagem original 
+####### Etapa 1: contém a imagem original 
+
 # Talvez modifique para recebê-la como entrada
 img = Image.open("/home/lativ/Documents/"
         "UFAL/GioconDa/Dados/"
@@ -31,27 +33,23 @@ img = Image.open("/home/lativ/Documents/"
         "CVC-ColonDB/CVC-ColonDB/7.tiff"
         )
 
-print("Caminho da imagem: {0}".format(img.filename))
-print("Imagem carregada!")
+# TO DO: carregar uma lista de imagens: 1-300.tiff
+# TO DO: pela linha de comando, tipo:
+#   ./code.py img1.tiff [ou até várias de uma vez]
 
-### Etapa 2: conversão para escala de cinza
+###### Etapa 2: conversão para escala de cinza
+
 imgc = img.convert(mode="L") # RGB -> Cinza.
 # eu deveria usar o .quantize em vez do convert?
 
-print("Conversão para escala de cinza feita!")
+###### Etapa 3: particionando imagem original em patches
 
-### Etapa 3: particionando imagem original em patches
-print("Preparando particionamento...")
+# TO DO: fazer função que
+#   recebe imagem e patch_size
+#   retorna lista de patches
 
 PATCH_SIZE      = 50        # é o tamanho do patch 
 GRAY_LEVELS     = 256       # imagem tem 24 níveis; requantizei para 8.
-
-# TO DO: usar outros valores para displacement, como no artigo [1 GLCM pra cada]
-# 0º  : [0, 1]
-# 45º : [-1,1]
-# 90º : [1, 0]
-# 135º: [-1,-1]
-displacement    = [1,1]     # padrão usado: significa um pixel para direita, um pixel para baixo (-45º)
 
 # box=(left=0,  upper=12,   right=50,   lower=62) <- primeiro patch (superior esq)
 # box=(left=450,upper=512,  right=500,  lower=562) <- último patch (inferior dir)
@@ -69,16 +67,23 @@ for i in range(11):     # controla linhas
                     )
             )
             
-            
-print("Particinamento completo!")
-print("=> Tamanho do patch usado: "
-        "{patch_size}x{patch_size}".format(patch_size=PATCH_SIZE))
-
-total_patches = len(patches) * len(patches[0]) # 11 * 10 para PATCH_SIZE=50
-print("=> Total de patches: {total}".format(total=total_patches))
-
 # Agora já tenhos os 110 patches, mas alguns são pretos.
 # Preciso descartar. Mas não eliminar-os-ei, por agora.
+
+# TO DO: função que
+#       recebe patche
+#       retorna glcm
+
+# TO DO: usar outros valores para displacement, como no artigo [1 GLCM pra cada]
+# 0º  : [0, 1]
+# 45º : [-1,1]
+# 90º : [1, 0]
+# 135º: [-1,-1]
+displacement = [1,1]     # padrão usado: significa um pixel para direita, um pixel para baixo (-45º)
+
+# TO DO: função que
+#       recebe glcm
+#       retorna lista de atributos
 
 # ROWMAX e COLMAX são as bordas utilizadas para o cálculo da matriz GLCM
 # Tá padrão do Avinash.
@@ -90,9 +95,9 @@ colmax  =   PATCH_SIZE - displacement[1] if displacement[1] else PATCH_SIZE - 1
 # Matriz 11x10, onde cada célula é uma GLCM
 patches_glcm = [[None for _ in range(10)] for _ in range(11)] 
 
-### Etapa 4: calcular matriz de co-ocorrência, extrair atributos e salvá-los
-print("Calculando GLCM para cada patch.")
-with open('attrs.csv', 'w', newline='') as attrs:
+###### Etapa 4: calcular matriz de co-ocorrência, extrair atributos e salvá-los
+fname = 'attrs.csv'
+with open(fname, 'w', newline='') as attrs:
     header = ['patch',
             'entropia',
             'energia',
@@ -122,6 +127,8 @@ with open('attrs.csv', 'w', newline='') as attrs:
             # já posso calcular os atributos aqui?
             # mudando de None para 0
             # não consigo ver algum problema por isso
+
+            
             entropy = energy = contrast = homogeneity = 0
             normalizer = functools.reduce(lambda x, y: x + sum(y), glcm, 0)
             for m in range(GRAY_LEVELS):
@@ -148,5 +155,8 @@ with open('attrs.csv', 'w', newline='') as attrs:
                 })
 
 
+print("Imagem carregada, convertida para cinza e particionada em patches de"
+        " tamanho {0}x{1}.".format(PATCH_SIZE, PATCH_SIZE))
 print("GLCMs construídas, atributos extraídos e salvos com sucesso.")
 
+# TO DO: criar main para chamar as funções necessárias, e ao fim salvar no .csv
