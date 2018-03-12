@@ -7,6 +7,7 @@ import math
 import functools
 import numpy as np
 import csv 
+import pymp
 
 from PIL import Image
 
@@ -45,7 +46,10 @@ def calc_glcm(patch=None, disp=[0,1]):
     
     # Image --> numpy.array
     image = np.asarray(patch)
-    
+    #    image = pymp.shared.array(...) ? como passar image aqui?
+    # acho que só iterando e passando valores...
+    # por agora, tento sem
+
     PATCH_SIZE = len(image)
 
     # ROWMAX e COLMAX são as bordas utilizadas para o cálculo da matriz GLCM
@@ -57,7 +61,7 @@ def calc_glcm(patch=None, disp=[0,1]):
     # inicializa matriz GLCM
     shape = (GRAY_LEVELS, GRAY_LEVELS)
     glcm = np.zeros(shape=shape, dtype=np.int8)
-
+    """
     # Calculando GLCM para patch
     for i in range(rowmax):
         for j in range(colmax):
@@ -66,7 +70,18 @@ def calc_glcm(patch=None, disp=[0,1]):
             # simétrica
             glcm[m][n] += 1
             glcm[n][m] += 1
-    
+    """
+    # Calculando GLCM para patch (paralelizado)
+    glcm = pymp.shared.array(shape, dtype='uint8')
+    with pymp.Parallel(6) as par:
+        for i in par.range(0, rowmax):
+            for j in par.range(0, colmax):
+                # pega valores (m,n) no padrão setado e incrementa glcm[m][n] e glcm[n][m]
+                m, n = image[i][j], image[i + displacement[0]][j + displacement[1]]
+                # simétrica
+                glcm[m][n] += 1
+                glcm[n][m] += 1
+        
     return glcm
 
 #       recebe glcm
@@ -109,6 +124,10 @@ if __name__ == "__main__":
 
     # paralelizar aqui, será que vai?
     # cada imagem toma ~1min, logo tudo dá ~5h
+    ## Não: paralelizar apenas glcm(), extrair_attrs(), ..
+    ## Paralelizando glcm(): ~55 segundos por imagem. Não sei se melhor algo..
+    ## Depois verifico se paralelizo outras funções ou
+    ## paralelizo daqui mesmo, de alguma forma. Preciso estudar OpenMP.
     for i in range(300):
         print("Tratando imagem {}...".format(i+1))
 
