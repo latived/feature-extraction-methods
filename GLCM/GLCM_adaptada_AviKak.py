@@ -46,10 +46,6 @@ def calc_glcm(patch=None, disp=[0,1]):
     
     # Image --> numpy.array
     image = np.asarray(patch)
-    #    image = pymp.shared.array(...) ? como passar image aqui?
-    # acho que só iterando e passando valores...
-    # por agora, tento sem
-
     PATCH_SIZE = len(image)
 
     # ROWMAX e COLMAX são as bordas utilizadas para o cálculo da matriz GLCM
@@ -61,7 +57,7 @@ def calc_glcm(patch=None, disp=[0,1]):
     # inicializa matriz GLCM
     shape = (GRAY_LEVELS, GRAY_LEVELS)
     glcm = np.zeros(shape=shape, dtype=np.int8)
-    """
+    #"""
     # Calculando GLCM para patch
     for i in range(rowmax):
         for j in range(colmax):
@@ -70,18 +66,6 @@ def calc_glcm(patch=None, disp=[0,1]):
             # simétrica
             glcm[m][n] += 1
             glcm[n][m] += 1
-    """
-    # Calculando GLCM para patch (paralelizado)
-    glcm = pymp.shared.array(shape, dtype='uint8')
-    with pymp.Parallel(6) as par:
-        for i in par.range(0, rowmax):
-            for j in par.range(0, colmax):
-                # pega valores (m,n) no padrão setado e incrementa glcm[m][n] e glcm[n][m]
-                m, n = image[i][j], image[i + displacement[0]][j + displacement[1]]
-                # simétrica
-                glcm[m][n] += 1
-                glcm[n][m] += 1
-        
     return glcm
 
 #       recebe glcm
@@ -111,48 +95,8 @@ def extrair_attrs(glcm = None):
 
     return attrs
 
-if __name__ == "__main__":
-
-    # Talvez modifique para recebê-la como entrada
-    img_path = ("/home/lativ/Documents/UFAL/GioconDa/Dados/ImagesDataset/"
-            "ColonDB/CVC-ColonDB/CVC-ColonDB/")
-   
-    # Atributos obtidos para cada patch de uma imagem
-    list_attrs = [None for _ in range(110)]     # 110 porque já sei o total
-    # Guardar um 'list_attrs' para cada imagem, para no fim escrever no arquivo
-    list_attrs_imgs = [list_attrs for _ in range(300)]
-
-    # paralelizar aqui, será que vai?
-    # cada imagem toma ~1min, logo tudo dá ~5h
-    ## Não: paralelizar apenas glcm(), extrair_attrs(), ..
-    ## Paralelizando glcm(): ~55 segundos por imagem. Não sei se melhor algo..
-    ## Depois verifico se paralelizo outras funções ou
-    ## paralelizo daqui mesmo, de alguma forma. Preciso estudar OpenMP.
-    for i in range(300):
-        print("Tratando imagem {}...".format(i+1))
-
-        # pega 1 imagem e salva em img
-        img = Image.open(img_path + str(i+1) + ".tiff")
-                
-        ### CHAMADA DAS FUNÇÕES AQUI
-
-        # patches é uma lista com listas de partições da img original
-        patches = particionar(img) # matriz de patches 11x10
-        line_num = 0
-        for line in patches:
-            patch_num = 0
-            for patch in line:
-                # Calculando GLCM de um patch 
-                glcm = calc_glcm(patch) # lembre que displacement = [0,1] apenas
-                # Extração dos 4 atributos
-                # imgs_list_attrs[i] index os attrs da img i
-                # e imgs...[line_num * 10 + patch_num] salva os attrs do patch
-                list_attrs_imgs[i][line_num * 10 + patch_num] = extrair_attrs(glcm)
-                patch_num += 1
-            line_num += 1
-    
-    # nome do arquivo csv
-    fname = 'attrs.csv'
+def salva_attrs(list_attrs_imgs, file_name='attrs.csv'):
+    fname = file_name
     with open(fname, 'a', newline='') as fattrs:
         header = ['img',
                 'patch',
@@ -181,5 +125,50 @@ if __name__ == "__main__":
                     'contraste': attrs[2],
                     'homogeneidade': attrs[3]
                     })
+    print("Atributos salvos com sucesso no arquivo {}".format(file_name))
 
-    print("Done!")
+def main():
+     # Talvez modifique para recebê-la como entrada
+    img_path = ("/home/lativ/Documents/UFAL/GioconDa/Dados/ImagesDataset/"
+            "ColonDB/CVC-ColonDB/CVC-ColonDB/")
+ 
+    # Atributos obtidos para cada patch de uma imagem
+    list_attrs = [None for _ in range(110)]     # 110 porque já sei o total
+    # Guardar um 'list_attrs' para cada imagem, para no fim escrever no arquivo
+    list_attrs_imgs = [list_attrs for _ in range(300)]
+
+    # Cada imagem toma ~1min, logo tudo dá ~5h.
+    ## Paralelizando glcm(): ~55 segundos por imagem. 
+    ##      Nada melhorado. Algo eu fiz errado. 
+    ##      Tá 2x pior.
+    ## Preciso estudar OpenMP.
+    ## Eu poso tentar paralelizar aqui usando listas, 
+    ## que diz ser um pouco mais lento, mas deve ser o bastante. 
+    for i in range(1):
+        print("Tratando imagem {}...".format(i+1))
+
+        # pega 1 imagem e salva em img
+        img = Image.open(img_path + str(i+1) + ".tiff")
+                
+        ### CHAMADA DAS FUNÇÕES AQUI
+
+        # patches é uma lista com listas de partições da img original
+        patches = particionar(img) # matriz de patches 11x10
+        line_num = 0
+        for line in patches:
+            patch_num = 0
+            for patch in line:
+                # Calculando GLCM de um patch 
+                glcm = calc_glcm(patch) # lembre que displacement = [0,1] apenas
+                # Extração dos 4 atributos
+                # imgs_list_attrs[i] index os attrs da img i
+                # e imgs...[line_num * 10 + patch_num] salva os attrs do patch
+                list_attrs_imgs[i][line_num * 10 + patch_num] = extrair_attrs(glcm)
+                patch_num += 1
+            line_num += 1
+
+    salva_attrs(list_attrs_imgs)
+   
+
+if __name__ == "__main__":
+    main()
