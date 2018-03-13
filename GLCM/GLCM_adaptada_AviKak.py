@@ -74,7 +74,24 @@ def extrair_attrs(glcm = None):
     GRAY_LEVELS = len(glcm)
 
     entropy = energy = contrast = homogeneity = 0
-    normalizer = functools.reduce(lambda x, y: x + sum(y), glcm, 0)
+    #normalizer = functools.reduce(lambda x, y: x + sum(y), glcm, 0)
+    normalizer = np.add.reduce(np.add.reduce(glcm)) # faster, mas apenas 0.008s
+    #"""
+    probs = np.divide(glcm, normalizer) 
+    for m in range(GRAY_LEVELS):
+        for n in range(GRAY_LEVELS):
+            if (probs[m][n] >= 0.0001) and (probs[m][n] <= 0.999):
+                log_prob = math.log(probs[m][n], 2)
+            if probs[m][n] < 0.0001:
+                log_prob = 0
+            if probs[m][n] > 0.999:
+                log_prob = 0
+            entropy += -1.0 * probs[m][n] * log_prob
+            energy += probs[m][n] ** 2
+            contrast += ((m - n) ** 2) * probs[m][n]
+            homogeneity += probs[m][n] / ((1 + abs(m - n)) * 1.0)
+    """
+    # o gargalo tá aqui
     for m in range(GRAY_LEVELS):
         for n in range(GRAY_LEVELS):
             prob = (1.0 * glcm[m][n]) / normalizer
@@ -88,6 +105,7 @@ def extrair_attrs(glcm = None):
             energy += prob ** 2
             contrast += ((m - n) ** 2) * prob
             homogeneity += prob / ((1 + abs(m - n)) * 1.0)
+    """
     if abs(entropy) < 0.0000001:
         entropy = 0.0
     
