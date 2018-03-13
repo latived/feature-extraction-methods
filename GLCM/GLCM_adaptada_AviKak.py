@@ -78,20 +78,46 @@ def extrair_attrs(glcm = None):
     normalizer = np.add.reduce(np.add.reduce(glcm)) # faster, mas apenas 0.008s
     #"""
     probs = np.divide(glcm, normalizer) 
-    for m in range(GRAY_LEVELS):
-        for n in range(GRAY_LEVELS):
-            if (probs[m][n] >= 0.0001) and (probs[m][n] <= 0.999):
-                log_prob = math.log(probs[m][n], 2)
-            if probs[m][n] < 0.0001:
-                log_prob = 0
-            if probs[m][n] > 0.999:
-                log_prob = 0
-            entropy += -1.0 * probs[m][n] * log_prob
-            energy += probs[m][n] ** 2
-            contrast += ((m - n) ** 2) * probs[m][n]
-            homogeneity += probs[m][n] / ((1 + abs(m - n)) * 1.0)
+    probs_temp = np.copy(probs)
+    np.place(probs_temp, probs_temp < 0.0001, 1)
+    np.place(probs_temp, probs_temp > 0.999, 1)
+
+    log_probs = np.log2(probs_temp)
+    
+    entropy = np.add.reduce( # reduz linhas
+            np.add.reduce( # reduz colunas
+                np.multiply(-probs, log_probs)
+                )
+            )
+    energy = np.add.reduce(
+        np.add.reduce(
+            np.power(probs, 2)
+            )
+        )
+
+    # como fazer matriz 256x256 com m-n?
+    msubn = [[line - col for col in range(GRAY_LEVELS)] for line in
+            range(GRAY_LEVELS)]
+    contrast = np.add.reduce(
+            np.add.reduce(
+                np.multiply(
+                    np.power(msubn, 2), 
+                    probs
+                    )
+                )
+            )
+    homogeneity = np.add.reduce(
+            np.add.reduce(
+                np.divide(probs, 1 + np.abs(msubn))
+                )
+            )
+   
+    # Usando numpy consegui reduzir a chamada de extrair_attrs de ~0.5s para
+    # 0.015s
+
     """
-    # o gargalo tá aqui
+    # Original:
+    #    o gargalo tá aqui
     for m in range(GRAY_LEVELS):
         for n in range(GRAY_LEVELS):
             prob = (1.0 * glcm[m][n]) / normalizer
