@@ -2,7 +2,7 @@
 
 import random
 import math
-import BitVector
+#import BitVector
 
 import numpy as np
 
@@ -21,55 +21,57 @@ import numpy as np
 ##
 #   Essa formula acima peguei de: 2003-TheLocalBinaryPatternApproach
 
-IMAGE_SIZE = 50                                                                    #(A6)
-GRAY_LEVELS = 256                                                                   #(A7)
-R = 1                  # the parameter R is radius of the circular pattern        #(A8)
-P = 8                  # the number of points to sample on the circle             #(A9)
+# recebe image 50x60
+# retorna 48^2 lbp_codes
+def lbp(image):
+    IMAGE_SIZE = 50                                                                     
+    GRAY_LEVELS = 256                                                                    
+    R = 1                  # the parameter R is radius of the circular pattern         
+    P = 8                  # the number of points to sample on the circle              
 
-lbp = [[0 for _ in range(IMAGE_SIZE)] for _ in range(IMAGE_SIZE)]                 #(C4)
-rowmax,colmax = IMAGE_SIZE-R,IMAGE_SIZE-R                                         #(C5)
-lbp_hist = {t:0 for t in range(P+2)}                                              #(C6)
-
-for i in range(R,rowmax):                                                         #(C7)
-    for j in range(R,colmax):                                                     #(C8)
-        pattern = []                                                              #(C10)
-        # These values are then multiplied are then multiplied by certain
-        # weights and summed, leading to one single value for each
-        # neighbourhood
-        for p in range(P):                                                        #(C11)
-            #  We use the index k to point straight down and l to point to the 
-            #  right in a circular neighborhood around the point (i,j). And we 
-            #  use (del_k, del_l) as the offset from (i,j) to the point on the 
-            #  R-radius circle as p varies.
-            del_k,del_l = R*math.cos(2*math.pi*p/P), R*math.sin(2*math.pi*p/P)    #(C12)
-            if abs(del_k) < 0.001: del_k = 0.0                                    #(C13)
-            if abs(del_l) < 0.001: del_l = 0.0                                    #(C14)
-            k, l =  i + del_k, j + del_l                                          #(C15)
-            k_base,l_base = int(k),int(l)                                         #(C16)
-            delta_k,delta_l = k-k_base,l-l_base                                   #(C17)
-            if (delta_k < 0.001) and (delta_l < 0.001):                           #(C18)
-                image_val_at_p = float(image[k_base][l_base])                     #(C19)
-            elif (delta_l < 0.001):                                               #(C20)
-                image_val_at_p = (1 - delta_k) * image[k_base][l_base] +  \
-                                              delta_k * image[k_base+1][l_base]   #(C21)
-            elif (delta_k < 0.001):                                               #(C22)
-                image_val_at_p = (1 - delta_l) * image[k_base][l_base] +  \
-                                              delta_l * image[k_base][l_base+1]   #(C23)
-            else:                                                                 #(C24)
-                image_val_at_p = (1-delta_k)*(1-delta_l)*image[k_base][l_base] + \
-                                 (1-delta_k)*delta_l*image[k_base][l_base+1]  + \
-                                 delta_k*delta_l*image[k_base+1][l_base+1]  + \
-                                 delta_k*(1-delta_l)*image[k_base+1][l_base]      #(C25)
-            if image_val_at_p >= image[i][j]:                                     #(C26)
-                pattern.append(1)                                                 #(C27)
-            else:                                                                 #(C28)
-                pattern.append(0)                                                 #(C29)
-        print("pattern: %s" % pattern)
-        
-        lbp_code = 0
-        
-        # Aqui começo a alterar o código original...
-
-#       print("encoding: %s" % encoding)                                          #(C48)
-#print("\nLBP Histogram: %s" % lbp_hist)                                           #(C49)
-
+    lbp = [[0 for _ in range(IMAGE_SIZE)] for _ in range(IMAGE_SIZE)]          
+     
+    rowmax,colmax = IMAGE_SIZE-R,IMAGE_SIZE-R                                          
+#   lbp_hist = {t:0 for t in range(P+2)}                                               
+    lbp_hist = {t:0 for t in range(GRAY_LEVELS)} 
+    
+    for i in range(R,rowmax):                                                          
+        for j in range(R,colmax):                                                      
+            pattern = []                                                               
+            # These values are then multiplied are then multiplied by certain
+            # weights and summed, leading to one single value for each
+            # neighbourhood
+            for p in range(P):                                                         
+                #  We use the index k to point straight down and l to point to the 
+                #  right in a circular neighborhood around the point (i,j). And we 
+                #  use (del_k, del_l) as the offset from (i,j) to the point on the 
+                #  R-radius circle as p varies.
+                del_k,del_l = R*math.cos(2*math.pi*p/P), R*math.sin(2*math.pi*p/P)     
+                if abs(del_k) < 0.001: del_k = 0.0                                     
+                if abs(del_l) < 0.001: del_l = 0.0                                     
+                k, l =  i + del_k, j + del_l                                           
+                k_base,l_base = int(k),int(l)                                          
+                delta_k,delta_l = k-k_base,l-l_base                                    
+                if (delta_k < 0.001) and (delta_l < 0.001):                            
+                    image_val_at_p = float(image[k_base][l_base])                      
+                elif (delta_l < 0.001):                                                
+                    image_val_at_p = (1 - delta_k) * image[k_base][l_base] +  \
+                                                delta_k * image[k_base+1][l_base]    
+                elif (delta_k < 0.001):                                                
+                    image_val_at_p = (1 - delta_l) * image[k_base][l_base] +  \
+                                                delta_l * image[k_base][l_base+1]    
+                else:                                                                  
+                    image_val_at_p = (1-delta_k)*(1-delta_l)*image[k_base][l_base] + \
+                                    (1-delta_k)*delta_l*image[k_base][l_base+1]  + \
+                                    delta_k*delta_l*image[k_base+1][l_base+1]  + \
+                                    delta_k*(1-delta_l)*image[k_base+1][l_base]       
+                if image_val_at_p >= image[i][j]:                                      
+                    pattern.append(1)                                                  
+                else:                                                                  
+                    pattern.append(0)                                                  
+#           print("pattern: %s" % pattern)
+    
+            lbp_code = np.add.reduce([pattern[i] * (i+1)**2 for i in range(8)])
+            lbp_hist[lbp_code] += 1        
+    
+    return lbp_hist
