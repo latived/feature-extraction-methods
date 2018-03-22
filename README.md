@@ -3,7 +3,7 @@
 Vejamos... em cada pasta há os códigos que fiz para replicar uns trabalhos de
 extração e classificação de atributos a partir de imagens médicas.
 
-*01*: _Texture-based polyp detection in colonoscopy:_ [DOI](https://doi.org/10.1007/978-3-540-93860-6_70)
+## 01: _Texture-based Polyp Detection in Colonoscopy_ {[DOI](https://doi.org/10.1007/978-3-540-93860-6_70)}
 
 ### Atributos
 
@@ -33,4 +33,4 @@ _With the extracted feature data an SVM-classifier was trained and tested
 using a radial basis function as kernel. We applied a stratified k-fold 
 cross-validation with k = 4._
 
-*02*: ...
+## 02: ...
