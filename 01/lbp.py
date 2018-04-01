@@ -7,21 +7,15 @@ import math
 import numpy as np
 
 # Vejamos, no artigo original temos (TBPDIC):
-#   LBP is extracted from a 3x3 nb
-#   The nb is binarised ...
-#   The values (runs?) are then multiplied by certain weights and summed (1)
-#   Leading to one single value for each nb.
 #   .. an amount of 64 histogram bins was used
 #   leading to a 64-dimensional feature vector.
 # Num patch 50x50, usando uma matriz 3x3 temos para cada matriz:
-#   LBP_P,R (x_c, y_c) = sum p = 0 até P - 1 de s(g_p - g_c)2^p (2)
-#   LBP_P,R resulta em 2^P valores distintos
-#   Nessa matriz temos P = 8, logo 2^8 = 256 valores   
-#   Porém... detalhe: no artigo o histograma tem 64 bins, não 256. 
-##
-#   Essa formula acima peguei de: 2003-TheLocalBinaryPatternApproach
+#   LBP_P,R (x_c, y_c) = sum p = 0 até P - 1 de s(g_p - g_c)2^p 
+#      LBP_P,R resulta em 2^P valores distintos
+#   Nessa matriz 3x3 temos P = 8, logo 2^8 = 256 valores   
+#   Porém... no artigo o histograma tem 64 bins, não 256. 
 
-# recebe image 50x60
+# recebe image 50x50 (patch)
 # retorna 48^2 lbp_codes
 def lbp(image):
     IMAGE_SIZE = 50                                                                     
@@ -29,18 +23,17 @@ def lbp(image):
     R = 1                  # the parameter R is radius of the circular pattern         
     P = 8                  # the number of points to sample on the circle              
 
-    lbp = [[0 for _ in range(IMAGE_SIZE)] for _ in range(IMAGE_SIZE)]          
+    # lbp = [[0 for _ in range(IMAGE_SIZE)] for _ in range(IMAGE_SIZE)]          
      
     rowmax,colmax = IMAGE_SIZE-R,IMAGE_SIZE-R                                          
-#   lbp_hist = {t:0 for t in range(P+2)}                                               
     lbp_hist = {t:0 for t in range(GRAY_LEVELS)} 
     
     for i in range(R,rowmax):                                                          
         for j in range(R,colmax):                                                      
             pattern = []                                                               
-            # These values are then multiplied are then multiplied by certain
-            # weights and summed, leading to one single value for each
-            # neighbourhood
+            # These values are then multiplied by certain weights and summed,
+            # leading to one single value for each neighbourhood
+
             for p in range(P):                                                         
                 #  We use the index k to point straight down and l to point to the 
                 #  right in a circular neighborhood around the point (i,j). And we 
@@ -69,9 +62,9 @@ def lbp(image):
                     pattern.append(1)                                                  
                 else:                                                                  
                     pattern.append(0)                                                  
-#           print("pattern: %s" % pattern)
     
-            lbp_code = np.add.reduce([pattern[i] * (i+1)**2 for i in range(8)])
+            #   LBP_P,R (x_c, y_c) = sum p = 0 até P - 1 de s(g_p - g_c)2^p 
+            lbp_code = np.add.reduce([pattern[i] * 2**i for i in range(P)])
             lbp_hist[lbp_code] += 1        
     
     return lbp_hist
