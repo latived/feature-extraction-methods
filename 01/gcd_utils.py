@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import csv
+import numpy as np
 
 from PIL import Image # TODO: analisar uso do scikit-image no lugar.
 
@@ -33,14 +34,14 @@ def calc_patches(img = None, ps=50):
                 # particiono a partir do 12o pixel para ficar melhor,
                 # pois as imagems são 574x500
                 # TODO: automatizar inicio da partição
-                patches[i][j] = imgc.crop(
+                patches[i][j] = np.asarray(imgc.crop(
                         box=(
                             (j * PATCH_SIZE),                       # left
                             (12 + i * PATCH_SIZE ),                 # upper
                             (PATCH_SIZE + j * PATCH_SIZE),          # right (left + 50)
                             ((12 + PATCH_SIZE) + i * PATCH_SIZE)    # lower (upper + 50)
                         )
-                )
+                ))
 
     return patches # Eliminar patches majoritariamente pretos?
 

@@ -18,8 +18,7 @@ def calc_glcm(patch=None, disp=[0,1]):
     displacement = disp # padrão usado
     
     # Image para ndarray
-    image = np.asarray(patch)
-    PATCH_SIZE = len(image)
+    PATCH_SIZE = len(patch)
 
     # ROWMAX e COLMAX são as bordas utilizadas para o cálculo da matriz GLCM
     rowmax  =   PATCH_SIZE - displacement[0] if displacement[0] else PATCH_SIZE - 1
@@ -36,7 +35,7 @@ def calc_glcm(patch=None, disp=[0,1]):
     for i in range(rowmax):
         for j in range(colmax):
             # pega valores (m,n) no padrão setado e incrementa glcm[m][n] e glcm[n][m]
-            m, n = image[i][j], image[i + displacement[0]][j + displacement[1]]
+            m, n = patch[i][j], patch[i + displacement[0]][j + displacement[1]]
             # simétrica
             glcm[m][n] += 1
             glcm[n][m] += 1
