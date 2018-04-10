@@ -9,8 +9,6 @@
 
 import numpy as np
 
-from PIL import Image # TODO: analisar uso do scikit-image no lugar.
-
 def calc_glcm(patch=None, disp=[0,1]):
     #       recebe patch
     #       retorna glcm
@@ -109,9 +107,57 @@ def calc_attrs(glcm = None):
                         )
                     )
    
-    if abs(entropy) < 0.0000001:
-        entropy = 0.0
+    # de Haralick's TexturalFeatures
+    # sum(sum(i*j*p(i,j) - ux*uy))/sx*sy, 
+    #   onde p(i,j) = probs, 
+    #   e ux, uy, sx e sy são as médias e desvios de px(i), py(j)
+#
+#    correlation = 0
+#    probs_y = np.add.reduce(probs)
+#    probs_x = np.add.reduce(probs, axis=1)
+#    mean_y = np.add.reduce([j*probs_y[j] for j in range(GRAY_LEVELS)])
+#    mean_x = np.add.reduce([i*probs_x[i] for i in range(GRAY_LEVELS)])
+#    
+#    std_y = np.sqrt(np.add.reduce(
+#        [(j - mean_y)**2 * np.add.reduce([probs[i][j] 
+#                for i in range(GRAY_LEVELS)])
+#            for j in range(GRAY_LEVELS)]
+#        ))
+#    std_x = np.sqrt(np.add.reduce(
+#        [(i - mean_x)**2 * np.add.reduce([probs[i][j]
+#                for j in range(GRAY_LEVELS)])
+#            for i in range(GRAY_LEVELS)]
+#        ))
+#    for i in range(GRAY_LEVELS):
+#        for j in range(GRAY_LEVELS):
+#            correlation += (i*j * probs[i][j] - \
+#                np.mean(probs_x)*np.mean(probs_y)) / 
+#                   (np.std(probs_x) * np.std(probs))
     
-    attrs = [entropy, energy, contrast, homogeneity]
+    px = probs.sum(0)
+    py = probs.sum(1)
+
+    ux = np.dot(px, 255)
+    uy = np.dot(py, 255)
+    vx = np.dot(px, 255**2) - ux**2
+    vy = np.dot(py, 255**2) - uy**2
+
+    sx = np.sqrt(vx)
+    sy = np.sqrt(vy)
+   
+    i,j = np.mgrid[:256,:256]
+    ij = i*j
+
+    correlation = (1. / sx / sy) * (np.dot(ij.ravel(), probs.ravel()) - ux * uy)
+
+#    for i in range(GRAY_LEVELS):
+#        for i in range(GRAY_LEVELS):
+#            correlation += ((i*j) * probs[i][j] - \
+#                    (mean_x*mean_y))/(std_x * std_y)
+    
+    if abs(entropy) < 0.0000001:
+        entropy = 0
+    
+    attrs = [entropy, energy, contrast, homogeneity, correlation]
 
     return attrs
