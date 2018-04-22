@@ -70,8 +70,9 @@ patches_70 = [
 #   resultado: veotr 6 dimensões, onde [at1...at6]
 
 # TODO: usar patches em vez da imagem inteira
+actual_patch = patches_50[5][5]
 # TODO: Calcular hfeats para todas distâncias
-hfeats = features.haralick(colon_gray)
+hfeats = features.haralick(actual_patch)
 # TODO: Melhorar essa parte
 feats_glcm_16 = []
 # http://www.ucalgary.ca/mhallbey/asm
@@ -82,13 +83,8 @@ feats_glcm_16.append(hfeats[:,4]) # Local Homogeneity (or Inverse Difference Mom
 feats_glcm_16.append(hfeats[:,8]) # Entropy
 feats_glcm_16.append(hfeats[:,2]) # Correlation
 
-# TODO: bom? Não poderia eu pegar a média de hfeats? 
-hfeats_mean = features.haralick(colon_gray, return_mean=True)
-feats_glcm_6 = []
-
-feats_glcm_6.append(hfeats_mean[:,0]) # Energy
-feats_glcm_6.append(hfeats_mean[:,4]) # Local homogeneity
-feats_glcm_6.append(hfeats_mean[:,8]) # Entropy
+feats_glcm_6 = list(np.mean([hfeats[:,0], hfeats[:,4], hfeats[:,8]], axis=1))
+# convert to list is good as it is above?
 
 # inertia assemelha-se a contraste, enquanto cluster shade e prominence
 # não são calculadas pois são novas (pós haralick) (ver Conners et al 1984)
@@ -102,12 +98,12 @@ _2d_deltas = [
         (1,0),
         (1,-1)]
 nr_dirs = len(_2d_deltas)
-fm1 = colon_gray.max() + 1 # por que + 1?
+fm1 = actual_patch.max() + 1
 cmat = np.empty((fm1, fm1), np.int32)
 def all_cmatrices():
     for dir in range(nr_dirs):
-        glcm = features.texture.cooccurence(colon_gray, dir, cmat,
-                symmetric=True, distance=distance)
+        features.texture.cooccurence(actual_patch, dir, cmat,
+                symmetric=True, distance=1)
         yield cmat
 
 rfeatures = []
@@ -115,8 +111,8 @@ for cmat in all_cmatrices():
     feats   = np.zeros(3)
     T       = cmat.sum()
     maxv    = len(cmat)
-    k       = np.arange(2*maxv)
-    i,j     = np.mgrid(:maxv,:maxv)
+    k       = np.arange(maxv)
+    i,j     = np.mgrid[:maxv,:maxv]
     i_j2 = (i - j)**2
     i_j2 = i_j2.ravel()
     
@@ -132,16 +128,20 @@ for cmat in all_cmatrices():
     i_j_ux_uy3 = i_j_ux_uy**3
     i_j_ux_uy4 = i_j_ux_uy**4
     
+    i_j_ux_uy3 = i_j_ux_uy3.ravel()
+    i_j_ux_uy4 = i_j_ux_uy4.ravel()
+
     feats[0] = np.dot(i_j2, pravel)
     feats[1] = np.dot(i_j_ux_uy3, pravel)
     feats[2] = np.dot(i_j_ux_uy4, pravel)
     rfeatures.append(feats)
 
+rfeatures = np.array(rfeatures)
 rfeatures_mean = rfeatures.mean(axis=0)
 
-feats_glcm_6.append(rfeatures_mean[:,0]) # inertia
-feats_glcm_6.append(rfeatures_mean[:,1]) # cluster shade
-feats_glcm_6.append(rfeatures_mean[:,2]) # cluster prominence
+feats_glcm_6.append(rfeatures_mean[0]) # inertia
+feats_glcm_6.append(rfeatures_mean[1]) # cluster shade
+feats_glcm_6.append(rfeatures_mean[2]) # cluster prominence
 
 # TODO: LBP feature
 
