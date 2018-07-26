@@ -146,6 +146,11 @@ def get_image_patches(img, patch_size):
     return np.concatenate(patches)
 
 
+def patch_contains_polyp(patch, patch_size):
+    white = np.count_nonzero(patch) / np.power(patch_size, patch_size)
+    return white >= 0.50
+
+
 def calculate_and_save_all_features(patches, patches_mask, patch_size, sequence):
 
     # TODO: add lbp_oc in the code
@@ -195,7 +200,7 @@ def calculate_and_save_all_features(patches, patches_mask, patch_size, sequence)
 
         features = [feats_glcm16, feats_glcm6, feats_lbp]
 
-        if check_patch_contains_polyp(pmask):
+        if patch_contains_polyp(pmask, patch_size):
             for f in features:
                 f.append(1)
         else:
