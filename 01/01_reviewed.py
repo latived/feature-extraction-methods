@@ -159,6 +159,8 @@ def calculate_and_save_all_features(patches, patch_size, sequence):
         fn = '_'.join(['seq' + str(sequence), 'ps' + str(patch_size), method])
         files.append(open('features_files/' + fn + '.csv', 'a', newline=''))
 
+    # TODO: add new column 'polyp' to represent the presence of a polyp
+
     # FIELDNAMES (HEADERS) FOR EACH METHOD OF EXTRACTION
     fieldnames_glcm16 = ['energy_0', 'local_homogeneity_0', 'entropy_0', 'correlation_0',
                          'energy_45', 'local_homogeneity_45', 'entropy_45', 'correlation_45',
@@ -188,6 +190,8 @@ def calculate_and_save_all_features(patches, patch_size, sequence):
         feats_lbp = lbp(patch)
         # feats_lbp_oc = lbp_oc(patch)
 
+        # TODO: check in cp<id>.tiff if the associated patch has a polyp
+
         features = [feats_glcm16, feats_glcm6, feats_lbp]
 
         # Write the values of the features calculated in each respective file
@@ -214,7 +218,10 @@ def main():
 
     # A dict with seq : [ filenames ], like: '1' : ['1.tiff', ..., '39.tiff']
     filenames = dict()
+    filenames_mask = dict()  # filenames for the polyp masks
     filenames[sequences[0]] = [str(id) + '.tiff' for id in range(1, 39)]
+    filenames_mask[sequences[0]] = ['p' + str(id) + '.tiff' for id in range(1, 39)]
+
     # TODO: Modify RHS below
     """
     filenames[sequences[1]] = list(range(39, 61))
@@ -236,15 +243,23 @@ def main():
         # Just to don't raise KeyError
         if seq not in filenames.keys():
             filenames[seq] = list()
+            filenames_mask[seq] = list()
 
-        for filename in filenames[seq]:
+        for (filename, filename_mask) in zip(filenames[seq], filenames_mask[seq]):
             colon_gray = read_image(colondb_folder, filename, gray=True)
+            colon_mask = read_image(colondb_folder, filename_mask)  # The polyp mask is a binary image
+
             # Get the patches lists
             patches_50 = get_image_patches(colon_gray, 50)
             patches_70 = get_image_patches(colon_gray, 70)
+
+            # Get the patches lists for the polyp mask
+            patches_50_mask = get_image_patches(colon_mask, 50)
+            patches_70_mask = get_image_patches(colon_mask, 70)
+
             # Do the freaking thing
-            #calculate_and_save_all_features(patches_50, 50, seq)
-            #calculate_and_save_all_features(patches_70, 70, seq)
+            calculate_and_save_all_features(patches_50, patches_50_mask, 50, seq)
+            calculate_and_save_all_features(patches_70, patches_70_mask, 70, seq)
 
 
 if __name__ == '__main__':
