@@ -146,7 +146,7 @@ def get_image_patches(img, patch_size):
     return np.concatenate(patches)
 
 
-def calculate_and_save_all_features(patches, patch_size, sequence):
+def calculate_and_save_all_features(patches, patches_mask, patch_size, sequence):
 
     # TODO: add lbp_oc in the code
 
@@ -165,10 +165,12 @@ def calculate_and_save_all_features(patches, patch_size, sequence):
     fieldnames_glcm16 = ['energy_0', 'local_homogeneity_0', 'entropy_0', 'correlation_0',
                          'energy_45', 'local_homogeneity_45', 'entropy_45', 'correlation_45',
                          'energy_90', 'local_homogeneity_90', 'entropy_90', 'correlation_90',
-                         'energy_135', 'local_homogeneity_135', 'entropy_135', 'correlation_135']
+                         'energy_135', 'local_homogeneity_135', 'entropy_135', 'correlation_135',
+                         'polyp']
     fieldnames_glcm6 = ['energy_mean', 'local_homogeneity_mean', 'entropy_mean',
-                        'inertia_mean', 'cluster_shade_mean', 'cluster_prominence']
-    fieldnames_lbp = [str(id) for id in range(1, 37)]
+                        'inertia_mean', 'cluster_shade_mean', 'cluster_prominence',
+                        'polyp']
+    fieldnames_lbp = [str(id) for id in range(1, 37)] + ['polyp']
     # fieldnames_lbp_oc
 
     fieldnames = [fieldnames_glcm16, fieldnames_glcm6, fieldnames_lbp]
@@ -177,7 +179,8 @@ def calculate_and_save_all_features(patches, patch_size, sequence):
     writers = list()
     for (file, fn) in zip(files, fieldnames):
         w = csv.DictWriter(file, fn)  # Create DictWriter object
-        w.writeheader()  # Writer header in the csv file
+        if not csv.Sniffer().has_header(file):  # The header will be writen only in the first call
+            w.writeheader()  # Writer header in the csv file
         writers.append(w)  # Add DictWriter object in the 'writers' list
 
     # For 50x50 matrices, we have 10x11 = 110 patches for each image
@@ -185,14 +188,19 @@ def calculate_and_save_all_features(patches, patch_size, sequence):
     # Each patch has 16 + 6 + 36 + <lbp_oc_num_feats> = 58 features (without lbp_oc)
     # With 300 images, we have 300x100 + 300x56 = 49800 patches
     # Therefore, we have a ~50000x58 matrix of data to use in svm (without lbp_oc)
-    for patch in patches:
+    for (patch, pmask) in zip(patches, patches_mask):
         feats_glcm16, feats_glcm6 = glcm_16_and_6(patch)
         feats_lbp = lbp(patch)
         # feats_lbp_oc = lbp_oc(patch)
 
-        # TODO: check in cp<id>.tiff if the associated patch has a polyp
-
         features = [feats_glcm16, feats_glcm6, feats_lbp]
+
+        if check_patch_contains_polyp(pmask):
+            for f in features:
+                f.append(1)
+        else:
+            for f in features:
+                f.append(0)
 
         # Write the values of the features calculated in each respective file
         for (writer, fns, feats) in zip(writers, fieldnames, features):
