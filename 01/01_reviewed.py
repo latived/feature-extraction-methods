@@ -104,6 +104,24 @@ def lbp_oc(patch):
     pass
 
 
+def get_filenames(sequences):
+    # TODO: Will I really need this 'filenames' list? Why not get the name on the run?
+
+    # A dict with seq : [ filenames ], like: '1' : ['1.tiff', ..., '39.tiff']
+    filenames = dict()
+    filenames_mask = dict()  # filenames for the polyp masks
+
+    # Sequence 1 go from 1.tiff to 39.tiff. The others you can imagine.
+    limits_inf = [1, 39, 61, 77, 98, 149, 156, 204, 209, 264, 274]
+    limits_sup = [39, 61, 77, 98, 149, 156, 204, 209, 264, 274, 301]
+    limits = [(i, s) for (i, s) in zip(limits_inf, limits_sup)]
+
+    for (seq, lim) in zip(sequences, limits):
+        filenames[seq] = [str(id) + '.tiff' for id in range(lim[0], lim[1])]
+        filenames_mask[seq] = ['p' + str(id) + '.tiff' for id in range(lim[0], lim[1])]
+
+    return filenames, filenames_mask
+
 def read_image(folder, filename, gray=False):
     # Join the path to the image and the filename itself
     full_path_colon_img = os.path.join(folder, filename)
@@ -234,27 +252,7 @@ def main():
     # Video sequence numbers of Bernal et al. (2012)
     sequences = (1, 2, 3, 5, 6, 7, 9, 10, 11, 14, 15)
 
-    # TODO: Will I really need this 'filenames' list? Why not get the name on the run?
-
-    # A dict with seq : [ filenames ], like: '1' : ['1.tiff', ..., '39.tiff']
-    filenames = dict()
-    filenames_mask = dict()  # filenames for the polyp masks
-    filenames[sequences[0]] = [str(id) + '.tiff' for id in range(1, 39)]
-    filenames_mask[sequences[0]] = ['p' + str(id) + '.tiff' for id in range(1, 39)]
-
-    # TODO: Modify RHS below
-    """
-    filenames[sequences[1]] = list(range(39, 61))
-    filenames[sequences[2]] = list(range(61, 77))
-    filenames[sequences[3]] = list(range(77, 98))
-    filenames[sequences[4]] = list(range(98, 149))
-    filenames[sequences[5]] = list(range(149, 156))
-    filenames[sequences[6]] = list(range(156, 204))
-    filenames[sequences[7]] = list(range(204, 209))
-    filenames[sequences[8]] = list(range(209, 264))
-    filenames[sequences[9]] = list(range(264, 274))
-    filenames[sequences[10]] = list(range(274, 301))
-    """
+    filenames, filenames_mask = get_filenames(sequences)
 
     # For each sequence,
     for seq in sequences:
