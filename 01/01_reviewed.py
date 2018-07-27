@@ -146,25 +146,15 @@ def get_image_patches(img, patch_size):
     return np.concatenate(patches)
 
 
-def patch_contains_polyp(patch, patch_size):
-    white = np.count_nonzero(patch) / np.power(patch_size, patch_size)
-    return white >= 0.50
-
-
-def calculate_and_save_all_features(patches, patches_mask, patch_size, sequence):
-
-    # TODO: add lbp_oc in the code
+def create_files(sequence, patch_size):
 
     methods = ['glcm_16', 'glcm_6', 'lbp']
-
     # FILES FOR EACH METHOD OF EXTRACTION
     files = list()
     for method in methods:
         # fn will be like 'seq01_ps50_glcm_16' for sequence=01 and patch_size=50
         fn = '_'.join(['seq' + str(sequence), 'ps' + str(patch_size), method])
         files.append(open('features_files/' + fn + '.csv', 'a', newline=''))
-
-    # TODO: add new column 'polyp' to represent the presence of a polyp
 
     # FIELDNAMES (HEADERS) FOR EACH METHOD OF EXTRACTION
     fieldnames_glcm16 = ['energy_0', 'local_homogeneity_0', 'entropy_0', 'correlation_0',
@@ -184,9 +174,30 @@ def calculate_and_save_all_features(patches, patches_mask, patch_size, sequence)
     writers = list()
     for (file, fn) in zip(files, fieldnames):
         w = csv.DictWriter(file, fn)  # Create DictWriter object
-        if not csv.Sniffer().has_header(file):  # The header will be writen only in the first call
-            w.writeheader()  # Writer header in the csv file
+        w.writeheader()  # Writer header in the csv file
         writers.append(w)  # Add DictWriter object in the 'writers' list
+
+    return files, fieldnames, writers
+
+
+def patch_contains_polyp(patch, patch_size):
+    # TODO: find a better way to consider if a patch contains or not a polyp
+    white = np.count_nonzero(patch) / np.power(patch_size, 2)
+    return white >= 0.50
+
+
+def _append_0_1_feats(features, value):
+    # TODO: optimize it
+    update_feats = list()
+    for f in features:
+        update_feats.append(np.append(f, value))
+
+    return update_feats
+
+
+def calculate_and_save_all_features(fieldnames, writers, patches, patches_mask, patch_size, sequence):
+
+    # TODO: add lbp_oc in the code
 
     # For 50x50 matrices, we have 10x11 = 110 patches for each image
     # For 70x70 matrices, we have 7x8 = 56 patches for each image
@@ -200,20 +211,16 @@ def calculate_and_save_all_features(patches, patches_mask, patch_size, sequence)
 
         features = [feats_glcm16, feats_glcm6, feats_lbp]
 
-        if patch_contains_polyp(pmask, patch_size):
-            for f in features:
-                f.append(1)
-        else:
-            for f in features:
-                f.append(0)
+        # TODO: find a better way to add 1 or 0 at the end of the array
+#        if patch_contains_polyp(pmask, patch_size):
+#            features = _append_0_1_feats(features, 1)
+#        else:
+#            features = _append_0_1_feats(features, 0)
+        features = _append_0_1_feats(features, np.count_nonzero(pmask) / np.power(patch_size, 2))  # For now ...
 
         # Write the values of the features calculated in each respective file
         for (writer, fns, feats) in zip(writers, fieldnames, features):
             writer.writerow(dict(zip(fns, feats)))  # .writerow needs a dict with 'fieldname' : value for each cell
-
-    # Close files here because it cost less than to open-and-close it all the time
-    for file in files:
-        file.close()
 
 
 def svm_classifier():
@@ -251,13 +258,16 @@ def main():
 
     # For each sequence,
     for seq in sequences:
-        # For each filename (like '1.tiff', or '39.tiff')
 
         # Just to don't raise KeyError
         if seq not in filenames.keys():
             filenames[seq] = list()
             filenames_mask[seq] = list()
 
+        files_ps50, fns_ps50, writers_ps50 = create_files(seq, 50)
+        files_ps70, fns_ps70, writers_ps70 = create_files(seq, 70)
+
+        # For each filename (like '1.tiff', or '39.tiff')
         for (filename, filename_mask) in zip(filenames[seq], filenames_mask[seq]):
             colon_gray = read_image(colondb_folder, filename, gray=True)
             colon_mask = read_image(colondb_folder, filename_mask)  # The polyp mask is a binary image
@@ -271,8 +281,13 @@ def main():
             patches_70_mask = get_image_patches(colon_mask, 70)
 
             # Do the freaking thing
-            calculate_and_save_all_features(patches_50, patches_50_mask, 50, seq)
-            calculate_and_save_all_features(patches_70, patches_70_mask, 70, seq)
+            calculate_and_save_all_features(fns_ps50, writers_ps50, patches_50, patches_50_mask, 50, seq)
+            calculate_and_save_all_features(fns_ps70, writers_ps70, patches_70, patches_70_mask, 70, seq)
+
+        # Close files here because it cost less than to open-and-close it all the time
+        for (f50, f70) in zip(files_ps50, files_ps70):
+            f50.close()
+            f70.close()
 
 
 if __name__ == '__main__':
