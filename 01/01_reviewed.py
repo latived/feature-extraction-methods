@@ -287,6 +287,7 @@ def main():
             f50.close()
             f70.close()
 
+        print("Sequence {}/{} done.".format(seq, len(sequences)))
 
 if __name__ == '__main__':
     """
